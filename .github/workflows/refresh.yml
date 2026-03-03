@@ -2,7 +2,7 @@ name: Weekly Refresh
 
 on:
   schedule:
-    - cron: '0 1 * * 0'   # Sunday 08:00 GMT+7
+    - cron: '0 18 * * 0'  # Monday 01:00 GMT+7
   workflow_dispatch:       # allow manual trigger
 
 jobs:
