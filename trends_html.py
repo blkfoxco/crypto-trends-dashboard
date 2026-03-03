@@ -39,6 +39,8 @@ EVENTS = [
     ("2024-04-20", "BTC Halving"),
     ("2024-03-14", "BTC ATH ~$73k"),
     ("2025-01-20", "BTC ATH ~$109k"),
+    ("2025-05-22", "BTC ATH ~$111k"),
+    ("2025-10-06", "BTC ATH ~$126k"),
 ]
 
 # ── Data fetching ─────────────────────────────────────────────────────────────
@@ -552,6 +554,8 @@ def main():
         '        <li><strong>Mar 2024</strong> — BTC ATH ~$73k</li>\n'
         '        <li><strong>Apr 2024</strong> — Bitcoin halving</li>\n'
         '        <li><strong>Jan 2025</strong> — BTC ATH ~$109k</li>\n'
+        '        <li><strong>May 2025</strong> — BTC ATH ~$111k</li>\n'
+        '        <li><strong>Oct 2025</strong> — BTC ATH ~$126k</li>\n'
         '      </ul>\n'
         '    </div>\n'
         '\n'
