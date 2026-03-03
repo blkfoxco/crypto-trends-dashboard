@@ -570,7 +570,7 @@ def main():
         '\n'
         '<footer class="page-footer">\n'
         f'  <span>Data: Google Trends (pytrends) + Binance BTCUSDT · Generated {datetime.now().strftime("%Y-%m-%d %H:%M UTC+7")}</span>\n'
-        '  <span>BTC price linear scale (USD) · Google Trends normalised to Bitcoin anchor</span>\n'
+        '  <span>BTC price linear scale (USD) · Google Trends normalised to Bitcoin anchor · <a href="https://github.com/blkfoxco/crypto-trends-dashboard" target="_blank" rel="noopener" style="color:#58a6ff;text-decoration:none;">GitHub</a></span>\n'
         '</footer>\n'
     )
 
