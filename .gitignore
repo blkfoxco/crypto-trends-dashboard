@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 *.bak
 crypto_trends_dashboard.png
+.vercel
+.env
+.env.*
