@@ -20,7 +20,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install pytrends requests numpy pandas plotly
+        run: pip install -r requirements.txt
 
       - name: Regenerate dashboard
         run: python trends_html.py

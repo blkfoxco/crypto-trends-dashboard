@@ -29,16 +29,16 @@ The chart helps visualise the relationship between public search interest and Bi
 | File | Description |
 |---|---|
 | `index.html` | Generated dashboard (do not edit manually) |
-| `trends.py` | Main data fetch + chart generation script |
-| `trends_html.py` | HTML rendering helpers |
+| `trends_html.py` | Data fetch + interactive HTML chart generation |
+| `requirements.txt` | Pinned Python dependencies |
 | `vercel.json` | Vercel deployment config |
 
 ## Running Locally
 
 ```bash
-pip install pytrends requests plotly
-python trends.py
-# Opens index.html in your browser
+pip install -r requirements.txt
+python trends_html.py
+# Opens crypto_trends_dashboard.html in your browser
 ```
 
 ## Caveats
