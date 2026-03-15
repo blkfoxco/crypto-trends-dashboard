@@ -112,31 +112,42 @@ def fetch_btc_price():
         return df.set_index('date')['price']
     except requests.HTTPError as e:
         status_code = e.response.status_code if e.response is not None else 'unknown'
-        print(f"  Binance failed ({status_code}). Falling back to CoinGecko...")
+        print(f"  Binance failed ({status_code}). Falling back to Yahoo Finance...")
     except requests.RequestException as e:
-        print(f"  Binance request failed ({e}). Falling back to CoinGecko...")
+        print(f"  Binance request failed ({e}). Falling back to Yahoo Finance...")
 
     end_date = int(time.time())
     start_date = end_date - (260 * 7 * 24 * 60 * 60)
 
     r = requests.get(
-        "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart/range",
+        "https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD",
         params={
-            "vs_currency": "usd",
-            "from": start_date,
-            "to": end_date,
+            "period1": start_date,
+            "period2": end_date,
+            "interval": "1wk",
+            "includePrePost": "false",
+            "events": "div,splits"
         },
+        headers={"User-Agent": "Mozilla/5.0"},
         timeout=30
     )
     r.raise_for_status()
     data = r.json()
-    prices = data.get('prices', [])
-    if not prices:
-        raise ValueError("CoinGecko returned no BTC price data")
 
-    df = pd.DataFrame(prices, columns=['timestamp', 'price'])
-    df['date'] = pd.to_datetime(df['timestamp'], unit='ms')
-    weekly = df.set_index('date')['price'].resample('W').last().dropna()
+    result = data.get('chart', {}).get('result', [])
+    if not result:
+        raise ValueError("Yahoo Finance returned no BTC price data")
+
+    timestamps = result[0].get('timestamp', [])
+    quote = result[0].get('indicators', {}).get('quote', [{}])[0]
+    closes = quote.get('close', [])
+    if not timestamps or not closes:
+        raise ValueError("Yahoo Finance returned incomplete BTC price data")
+
+    df = pd.DataFrame({'timestamp': timestamps, 'price': closes})
+    df = df.dropna(subset=['price'])
+    df['date'] = pd.to_datetime(df['timestamp'], unit='s')
+    weekly = df.set_index('date')['price'].sort_index()
     return weekly.tail(260)
 
 
