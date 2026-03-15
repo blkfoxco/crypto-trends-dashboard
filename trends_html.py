@@ -95,20 +95,49 @@ def fetch_trends():
 
 def fetch_btc_price():
     print("  Fetching BTC price from Binance...")
+    try:
+        r = requests.get(
+            "https://api.binance.com/api/v3/klines",
+            params={"symbol": "BTCUSDT", "interval": "1w", "limit": 260},
+            timeout=30
+        )
+        r.raise_for_status()
+        candles = r.json()
+        df = pd.DataFrame(candles, columns=[
+            'open_time','open','high','low','close','volume',
+            'close_time','qav','trades','tbbav','tbqav','ignore'
+        ])
+        df['date']  = pd.to_datetime(df['open_time'], unit='ms')
+        df['price'] = df['close'].astype(float)
+        return df.set_index('date')['price']
+    except requests.HTTPError as e:
+        status_code = e.response.status_code if e.response is not None else 'unknown'
+        print(f"  Binance failed ({status_code}). Falling back to CoinGecko...")
+    except requests.RequestException as e:
+        print(f"  Binance request failed ({e}). Falling back to CoinGecko...")
+
+    end_date = int(time.time())
+    start_date = end_date - (260 * 7 * 24 * 60 * 60)
+
     r = requests.get(
-        "https://api.binance.com/api/v3/klines",
-        params={"symbol": "BTCUSDT", "interval": "1w", "limit": 260},
+        "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart/range",
+        params={
+            "vs_currency": "usd",
+            "from": start_date,
+            "to": end_date,
+        },
         timeout=30
     )
     r.raise_for_status()
-    candles = r.json()
-    df = pd.DataFrame(candles, columns=[
-        'open_time','open','high','low','close','volume',
-        'close_time','qav','trades','tbbav','tbqav','ignore'
-    ])
-    df['date']  = pd.to_datetime(df['open_time'], unit='ms')
-    df['price'] = df['close'].astype(float)
-    return df.set_index('date')['price']
+    data = r.json()
+    prices = data.get('prices', [])
+    if not prices:
+        raise ValueError("CoinGecko returned no BTC price data")
+
+    df = pd.DataFrame(prices, columns=['timestamp', 'price'])
+    df['date'] = pd.to_datetime(df['timestamp'], unit='ms')
+    weekly = df.set_index('date')['price'].resample('W').last().dropna()
+    return weekly.tail(260)
 
 
 # ── Plotting ──────────────────────────────────────────────────────────────────
