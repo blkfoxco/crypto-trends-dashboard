@@ -180,7 +180,7 @@ def build_chart(trends_df, btc_price):
             stackgroup = 'one',
             line       = dict(width=0.5, color=color_hex),
             fillcolor  = hex_to_rgba(color_hex, 0.80),
-            hovertemplate = f'<b>{term}</b><br>%{{x|%b %Y}}<br>Interest: %{{y:.1f}}<extra></extra>',
+            hoverinfo = 'skip',
         ))
 
     # ── BTC price line ────────────────────────────────────────────────────────
