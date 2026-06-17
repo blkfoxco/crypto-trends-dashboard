@@ -365,6 +365,24 @@ def main():
         '    text-decoration: none;\n'
         '  }\n'
         '\n'
+        '  .toggle-btn {\n'
+        '    margin-top: 14px;\n'
+        '    background: #161b22;\n'
+        '    border: 1px solid #30363d;\n'
+        '    border-radius: 6px;\n'
+        '    color: #c9d1d9;\n'
+        '    font-family: inherit;\n'
+        '    font-size: 13px;\n'
+        '    font-weight: 500;\n'
+        '    padding: 7px 14px;\n'
+        '    cursor: pointer;\n'
+        '    transition: background 0.15s, border-color 0.15s;\n'
+        '  }\n'
+        '\n'
+        '  .toggle-btn:hover { background: #21262d; border-color: #8b949e; }\n'
+        '\n'
+        '  .toggle-btn.active { background: #2d3b4e; border-color: #58a6ff; color: #e6edf3; }\n'
+        '\n'
         '  .chart-wrapper {\n'
         '    max-width: 1400px;\n'
         '    margin: 0 auto;\n'
@@ -525,6 +543,42 @@ def main():
         '</script>\n'
     )
 
+    # Toggle button: show/hide every trend term except Bitcoin (and the BTC
+    # price line) in one click. Hidden traces fall back to 'legendonly' so the
+    # legend still works normally alongside the master toggle.
+    toggle_script = (
+        '<script>\n'
+        '(function () {\n'
+        '  var KEEP = ["Bitcoin", "BTC Price"];\n'
+        '\n'
+        '  function wire(gd, btn) {\n'
+        '    var hidden = false;\n'
+        '    function targetIndices() {\n'
+        '      var idx = [];\n'
+        '      (gd.data || []).forEach(function (t, i) {\n'
+        '        if (KEEP.indexOf(t.name) === -1) idx.push(i);\n'
+        '      });\n'
+        '      return idx;\n'
+        '    }\n'
+        '    btn.addEventListener("click", function () {\n'
+        '      hidden = !hidden;\n'
+        '      Plotly.restyle(gd, { visible: hidden ? "legendonly" : true }, targetIndices());\n'
+        '      btn.textContent = hidden ? "Show all terms" : "Hide all except Bitcoin";\n'
+        '      btn.classList.toggle("active", hidden);\n'
+        '    });\n'
+        '  }\n'
+        '\n'
+        '  document.addEventListener("DOMContentLoaded", function () {\n'
+        '    var gd  = document.querySelector(".plotly-graph-div");\n'
+        '    var btn = document.getElementById("toggle-others");\n'
+        '    if (!gd || !btn) return;\n'
+        '    if (gd.data) { wire(gd, btn); }\n'
+        '    else { gd.addEventListener("plotly_afterplot", function () { wire(gd, btn); }, { once: true }); }\n'
+        '  });\n'
+        '})();\n'
+        '</script>\n'
+    )
+
     # Build metadata tags for head
     meta_tags = (
         f'<meta name="viewport" content="width=device-width, initial-scale=1">\n'
@@ -542,6 +596,7 @@ def main():
         '<div class="page-header">\n'
         '  <h1>Crypto Google Trends &amp; Bitcoin Price</h1>\n'
         f'  <p>5-year weekly view · Last updated {datetime.now().strftime("%d %b %Y")}</p>\n'
+        '  <button id="toggle-others" class="toggle-btn" type="button">Hide all except Bitcoin</button>\n'
         '</div>\n'
         '<div class="chart-wrapper">\n'
     )
@@ -628,7 +683,7 @@ def main():
     html = html.replace('<body>', '<body>\n' + page_header, 1)
 
     # Close chart-wrapper + inject methodology before </body>
-    html = html.replace('</body>', methodology_section + active_button_script + '</body>', 1)
+    html = html.replace('</body>', methodology_section + active_button_script + toggle_script + '</body>', 1)
 
     with open(OUTPUT, 'w', encoding='utf-8') as f:
         f.write(html)

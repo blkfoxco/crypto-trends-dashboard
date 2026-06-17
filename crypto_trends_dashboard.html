@@ -43,6 +43,24 @@
     text-decoration: none;
   }
 
+  .toggle-btn {
+    margin-top: 14px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    color: #c9d1d9;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .toggle-btn:hover { background: #21262d; border-color: #8b949e; }
+
+  .toggle-btn.active { background: #2d3b4e; border-color: #58a6ff; color: #e6edf3; }
+
   .chart-wrapper {
     max-width: 1400px;
     margin: 0 auto;
@@ -157,6 +175,7 @@
 <div class="page-header">
   <h1>Crypto Google Trends &amp; Bitcoin Price</h1>
   <p>5-year weekly view · Last updated 14 Jun 2026</p>
+  <button id="toggle-others" class="toggle-btn" type="button">Hide all except Bitcoin</button>
 </div>
 <div class="chart-wrapper">
 
@@ -284,6 +303,36 @@
     var gd = document.querySelector(".plotly-graph-div");
     if (!gd) return;
     gd.addEventListener("plotly_afterplot", function () { attachObserver(gd); }, { once: true });
+  });
+})();
+</script>
+<script>
+(function () {
+  var KEEP = ["Bitcoin", "BTC Price"];
+
+  function wire(gd, btn) {
+    var hidden = false;
+    function targetIndices() {
+      var idx = [];
+      (gd.data || []).forEach(function (t, i) {
+        if (KEEP.indexOf(t.name) === -1) idx.push(i);
+      });
+      return idx;
+    }
+    btn.addEventListener("click", function () {
+      hidden = !hidden;
+      Plotly.restyle(gd, { visible: hidden ? "legendonly" : true }, targetIndices());
+      btn.textContent = hidden ? "Show all terms" : "Hide all except Bitcoin";
+      btn.classList.toggle("active", hidden);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    var gd  = document.querySelector(".plotly-graph-div");
+    var btn = document.getElementById("toggle-others");
+    if (!gd || !btn) return;
+    if (gd.data) { wire(gd, btn); }
+    else { gd.addEventListener("plotly_afterplot", function () { wire(gd, btn); }, { once: true }); }
   });
 })();
 </script>
