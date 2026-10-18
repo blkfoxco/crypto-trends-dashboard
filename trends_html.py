@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Crypto Google Trends + BTC Price — Interactive HTML Dashboard
-Hover, zoom, toggle terms via legend. Dark theme.
+Bitcoin Google Trends + BTCUSDT Price — Interactive HTML Dashboard
+Hover, zoom, toggle series via legend. Dark theme.
 """
 
 import time
@@ -14,11 +14,7 @@ from pytrends.request import TrendReq
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-TERMS = [
-    "Cryptocurrency", "Bitcoin", "Doge", "Ethereum", "XRP",
-    "Solana", "Cardano", "Chainlink", "Litecoin", "Hyperliquid",
-    "Binance", "Coinbase", "Bybit", "OKX", "CoinMarketCap",
-]
+TERMS = ["Bitcoin"]
 
 ANCHOR    = "Bitcoin"
 TIMEFRAME = "today 5-y"
@@ -48,7 +44,7 @@ EVENTS = [
 def fetch_trends():
     pytrends    = TrendReq(hl='en-US', tz=420, timeout=(10, 25))
     other_terms = [t for t in TERMS if t != ANCHOR]
-    batches     = [other_terms[i:i+4] for i in range(0, len(other_terms), 4)]
+    batches     = [other_terms[i:i+4] for i in range(0, len(other_terms), 4)] or [[]]
 
     all_data         = {}
     bitcoin_baseline = None
@@ -79,6 +75,9 @@ def fetch_trends():
         if bitcoin_baseline is None:
             bitcoin_baseline = df[ANCHOR].copy()
             all_data[ANCHOR] = bitcoin_baseline
+
+        if not batch:
+            continue
 
         scale = bitcoin_baseline / df[ANCHOR].replace(0, np.nan)
         for term in batch:
@@ -191,11 +190,11 @@ def build_chart(trends_df, btc_price):
     fig.add_trace(go.Scatter(
         x          = dates,
         y          = btc_aligned.values,
-        name       = 'BTC Price',
+        name       = 'BTCUSDT',
         yaxis      = 'y2',
         mode       = 'lines',
         line       = dict(color='white', width=2),
-        hovertemplate = '<b>BTC Price</b><br>%{x|%b %Y}<br>$%{y:,.0f}<extra></extra>',
+        hovertemplate = '<b>BTCUSDT</b><br>%{x|%b %Y}<br>$%{y:,.0f}<extra></extra>',
     ))
 
     # ── Event annotations ─────────────────────────────────────────────────────
@@ -227,7 +226,7 @@ def build_chart(trends_df, btc_price):
     # ── Layout ────────────────────────────────────────────────────────────────
     fig.update_layout(
         title = dict(
-            text      = f'Crypto Google Trends + BTC Price  ·  Last 5 Years  ·  {datetime.now().strftime("%Y-%m-%d")}',
+            text      = f'Bitcoin Google Trends + BTCUSDT Price  ·  Last 5 Years  ·  {datetime.now().strftime("%Y-%m-%d")}',
             font      = dict(size=16, color='#c9d1d9'),
             x         = 0.01,
             xanchor   = 'left',
@@ -246,7 +245,7 @@ def build_chart(trends_df, btc_price):
         ),
 
         yaxis = dict(
-            title      = dict(text='Google Trends Interest (normalised)', font=dict(color='#8b949e')),
+            title      = dict(text='Google Trends Interest (0–100)', font=dict(color='#8b949e')),
             tickfont   = dict(color='#8b949e'),
             showgrid   = True,
             gridcolor  = '#1e242c',
@@ -255,7 +254,7 @@ def build_chart(trends_df, btc_price):
         ),
 
         yaxis2 = dict(
-            title       = dict(text='BTC Price USD', font=dict(color='#8b949e')),
+            title       = dict(text='BTCUSDT USD', font=dict(color='#8b949e')),
             tickfont    = dict(color='#8b949e'),
             overlaying  = 'y',
             side        = 'right',
@@ -298,7 +297,7 @@ def build_chart(trends_df, btc_price):
 
 
 def main():
-    print("📊 Fetching Google Trends (batched, ~1 min)...")
+    print("📊 Fetching Google Trends...")
     trends = fetch_trends()
 
     print("\n💰 Fetching BTC price...")
@@ -364,24 +363,6 @@ def main():
         '    color: #58a6ff;\n'
         '    text-decoration: none;\n'
         '  }\n'
-        '\n'
-        '  .toggle-btn {\n'
-        '    margin-top: 14px;\n'
-        '    background: #161b22;\n'
-        '    border: 1px solid #30363d;\n'
-        '    border-radius: 6px;\n'
-        '    color: #c9d1d9;\n'
-        '    font-family: inherit;\n'
-        '    font-size: 13px;\n'
-        '    font-weight: 500;\n'
-        '    padding: 7px 14px;\n'
-        '    cursor: pointer;\n'
-        '    transition: background 0.15s, border-color 0.15s;\n'
-        '  }\n'
-        '\n'
-        '  .toggle-btn:hover { background: #21262d; border-color: #8b949e; }\n'
-        '\n'
-        '  .toggle-btn.active { background: #2d3b4e; border-color: #58a6ff; color: #e6edf3; }\n'
         '\n'
         '  .chart-wrapper {\n'
         '    max-width: 1400px;\n'
@@ -543,47 +524,11 @@ def main():
         '</script>\n'
     )
 
-    # Toggle button: show/hide every trend term except Bitcoin (and the BTC
-    # price line) in one click. Hidden traces fall back to 'legendonly' so the
-    # legend still works normally alongside the master toggle.
-    toggle_script = (
-        '<script>\n'
-        '(function () {\n'
-        '  var KEEP = ["Bitcoin", "BTC Price"];\n'
-        '\n'
-        '  function wire(gd, btn) {\n'
-        '    var hidden = false;\n'
-        '    function targetIndices() {\n'
-        '      var idx = [];\n'
-        '      (gd.data || []).forEach(function (t, i) {\n'
-        '        if (KEEP.indexOf(t.name) === -1) idx.push(i);\n'
-        '      });\n'
-        '      return idx;\n'
-        '    }\n'
-        '    btn.addEventListener("click", function () {\n'
-        '      hidden = !hidden;\n'
-        '      Plotly.restyle(gd, { visible: hidden ? "legendonly" : true }, targetIndices());\n'
-        '      btn.textContent = hidden ? "Show all terms" : "Hide all except Bitcoin";\n'
-        '      btn.classList.toggle("active", hidden);\n'
-        '    });\n'
-        '  }\n'
-        '\n'
-        '  document.addEventListener("DOMContentLoaded", function () {\n'
-        '    var gd  = document.querySelector(".plotly-graph-div");\n'
-        '    var btn = document.getElementById("toggle-others");\n'
-        '    if (!gd || !btn) return;\n'
-        '    if (gd.data) { wire(gd, btn); }\n'
-        '    else { gd.addEventListener("plotly_afterplot", function () { wire(gd, btn); }, { once: true }); }\n'
-        '  });\n'
-        '})();\n'
-        '</script>\n'
-    )
-
     # Build metadata tags for head
     meta_tags = (
         f'<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        f'<meta name="description" content="Interactive chart showing crypto Google Trends interest alongside Bitcoin price over the last 5 years. Updated {datetime.now().strftime("%Y-%m-%d")}.">\n'
-        f'<title>Crypto Google Trends + BTC Price · Last 5 Years</title>\n'
+        f'<meta name="description" content="Interactive chart showing Google Trends search interest for Bitcoin alongside the BTCUSDT price over the last 5 years. Updated {datetime.now().strftime("%Y-%m-%d")}.">\n'
+        f'<title>Bitcoin Google Trends + BTCUSDT Price · Last 5 Years</title>\n'
     )
 
     # Terms list as pills
@@ -594,9 +539,8 @@ def main():
     # Page header (injected before Plotly div)
     page_header = (
         '<div class="page-header">\n'
-        '  <h1>Crypto Google Trends &amp; Bitcoin Price</h1>\n'
+        '  <h1>Bitcoin Google Trends &amp; BTCUSDT Price</h1>\n'
         f'  <p>5-year weekly view · Last updated {datetime.now().strftime("%d %b %Y")}</p>\n'
-        '  <button id="toggle-others" class="toggle-btn" type="button">Hide all except Bitcoin</button>\n'
         '</div>\n'
         '<div class="chart-wrapper">\n'
     )
@@ -611,29 +555,21 @@ def main():
         '\n'
         '    <div class="method-card">\n'
         '      <h3>What you\'re seeing</h3>\n'
-        '      <p>Stacked area chart of relative Google search interest for 15 crypto terms over 5 years.\n'
-        '      Bitcoin\'s USD price is overlaid as a white line on a logarithmic right-hand axis.\n'
-        '      Click legend entries to show/hide individual terms.</p>\n'
+        '      <p>Google search interest for the term “Bitcoin” over the last 5 years, with the\n'
+        '      BTCUSDT weekly close overlaid as a white line on a linear right-hand USD axis.\n'
+        '      Click a legend entry to show or hide either series.</p>\n'
         '    </div>\n'
         '\n'
         '    <div class="method-card">\n'
         '      <h3>Data sources</h3>\n'
         '      <ul>\n'
         '        <li><strong>Google Trends</strong> — weekly search interest via the unofficial <code>pytrends</code> API</li>\n'
-        '        <li><strong>BTC Price</strong> — weekly close from Binance BTCUSDT spot (no auth required)</li>\n'
+        '        <li><strong>BTCUSDT</strong> — weekly close from Binance spot (no auth required)</li>\n'
         '      </ul>\n'
         '    </div>\n'
         '\n'
         '    <div class="method-card">\n'
-        '      <h3>Cross-batch normalisation</h3>\n'
-        '      <p>Google Trends returns scores of 0–100 <em>relative within a single query</em>.\n'
-        '      Since max 5 terms can be queried at once, we batch in groups of 4 with Bitcoin as a\n'
-        '      shared anchor. Each batch\'s Bitcoin series is compared to the first batch\'s Bitcoin\n'
-        '      baseline to derive a scale factor, letting all 15 terms share a common y-axis.</p>\n'
-        '    </div>\n'
-        '\n'
-        '    <div class="method-card">\n'
-        '      <h3>Terms tracked</h3>\n'
+        '      <h3>Term tracked</h3>\n'
         '      <div class="terms-list">\n'
         f'        {terms_pills}\n'
         '      </div>\n'
@@ -662,14 +598,14 @@ def main():
         '\n'
         '  </div>\n'
         '\n'
-        '  <p class="caveat">⚠️ Google Trends represents <em>relative</em> search popularity, not absolute volume.\n'
-        '  The anchor normalisation approximates cross-batch comparability but may introduce minor distortions\n'
-        '  where Bitcoin\'s own trend line differs between batches. Use as a directional signal, not a precise metric.</p>\n'
+        '  <p class="caveat">⚠️ Google Trends returns a <em>relative</em> score: 100 marks the peak week of the\n'
+        '  selected period, every other week is scaled against it. It is not absolute search volume.\n'
+        '  Use as a directional signal, not a precise metric.</p>\n'
         '</div>\n'
         '\n'
         '<footer class="page-footer">\n'
         f'  <span>Data: Google Trends (pytrends) + Binance BTCUSDT · Generated {datetime.now().strftime("%Y-%m-%d %H:%M UTC+7")}</span>\n'
-        '  <span>BTC price linear scale (USD) · Google Trends normalised to Bitcoin anchor · <a href="https://github.com/blkfoxco/crypto-trends-dashboard" target="_blank" rel="noopener" style="color:#58a6ff;text-decoration:none;">GitHub</a></span>\n'
+        '  <span>BTCUSDT linear scale (USD) · <a href="https://github.com/blkfoxco/crypto-trends-dashboard" target="_blank" rel="noopener" style="color:#58a6ff;text-decoration:none;">GitHub</a></span>\n'
         '</footer>\n'
     )
 
@@ -683,7 +619,7 @@ def main():
     html = html.replace('<body>', '<body>\n' + page_header, 1)
 
     # Close chart-wrapper + inject methodology before </body>
-    html = html.replace('</body>', methodology_section + active_button_script + toggle_script + '</body>', 1)
+    html = html.replace('</body>', methodology_section + active_button_script + '</body>', 1)
 
     with open(OUTPUT, 'w', encoding='utf-8') as f:
         f.write(html)
