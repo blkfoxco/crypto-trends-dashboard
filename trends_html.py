@@ -14,11 +14,15 @@ from pytrends.request import TrendReq
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-TERMS = ["Bitcoin"]
+TERMS = ["Bitcoin", "BTCUSDT"]
 
-ANCHOR    = "Bitcoin"
 TIMEFRAME = "today 5-y"
 OUTPUT    = "crypto_trends_dashboard.html"
+
+TREND_COLORS = {
+    "Bitcoin": "#58a6ff",   # blue
+    "BTCUSDT": "#f0883e",   # orange
+}
 
 COLORS = [
     '#e6194b', '#f58231', '#ffe119', '#3cb44b', '#42d4f4',
@@ -42,50 +46,39 @@ EVENTS = [
 # ── Data fetching ─────────────────────────────────────────────────────────────
 
 def fetch_trends():
-    pytrends    = TrendReq(hl='en-US', tz=420, timeout=(10, 25))
-    other_terms = [t for t in TERMS if t != ANCHOR]
-    batches     = [other_terms[i:i+4] for i in range(0, len(other_terms), 4)] or [[]]
+    """One Trends query per term.
 
-    all_data         = {}
-    bitcoin_baseline = None
+    Each series is normalised inside its own query (peak week = 100), which is
+    what the chart displays. Querying terms together would sink the rarer term
+    to near zero, so separate queries preserve its shape.
+    """
+    pytrends  = TrendReq(hl='en-US', tz=420, timeout=(10, 25))
+    all_data  = {}
 
-    for i, batch in enumerate(batches):
-        kw_list = [ANCHOR] + batch
-        print(f"  Batch {i+1}/{len(batches)}: {kw_list}")
+    for term in TERMS:
+        print(f"  Querying '{term}'...")
 
         for attempt in range(3):
             try:
-                pytrends.build_payload(kw_list, timeframe=TIMEFRAME)
+                pytrends.build_payload([term], timeframe=TIMEFRAME)
                 df = pytrends.interest_over_time()
                 break
             except Exception as e:
                 print(f"  Retry {attempt+1}: {e}")
                 time.sleep(5 * (attempt + 1))
         else:
-            print(f"  Skipping batch {i+1} after 3 failed attempts")
+            print(f"  Skipping '{term}' after 3 failed attempts")
             continue
 
-        if df.empty:
-            print(f"  Warning: No data for batch {i+1}")
+        if df.empty or term not in df.columns:
+            print(f"  Warning: no data for '{term}'")
             continue
 
         if 'isPartial' in df.columns:
             df = df.drop('isPartial', axis=1)
 
-        if bitcoin_baseline is None:
-            bitcoin_baseline = df[ANCHOR].copy()
-            all_data[ANCHOR] = bitcoin_baseline
-
-        if not batch:
-            continue
-
-        scale = bitcoin_baseline / df[ANCHOR].replace(0, np.nan)
-        for term in batch:
-            if term in df.columns:
-                all_data[term] = (df[term] * scale).clip(0, 150)
-
-        if i < len(batches) - 1:
-            time.sleep(4)
+        all_data[term] = df[term]
+        time.sleep(4)
 
     result = pd.DataFrame(all_data).dropna(how='all')
     print(f"  Got {len(result)} weeks of data")
@@ -161,25 +154,20 @@ def build_chart(trends_df, btc_price):
     dates = trends_df.index.tolist()
     fig   = go.Figure()
 
-    def hex_to_rgba(hex_color, alpha=0.75):
-        h = hex_color.lstrip('#')
-        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-        return f'rgba({r},{g},{b},{alpha})'
-
     # ── Stacked area traces ───────────────────────────────────────────────────
     for i, term in enumerate(ordered):
-        vals      = trends_df[term].fillna(0).tolist()
-        color_hex = COLORS[i % len(COLORS)]
+        series    = trends_df[term].fillna(0)
+        peak      = series.max()
+        vals      = (series / peak * 100 if peak else series).tolist()
+        color_hex = TREND_COLORS.get(term, COLORS[i % len(COLORS)])
 
         fig.add_trace(go.Scatter(
             x          = dates,
             y          = vals,
             name       = term,
             mode       = 'lines',
-            stackgroup = 'one',
-            line       = dict(width=0.5, color=color_hex),
-            fillcolor  = hex_to_rgba(color_hex, 0.80),
-            hoverinfo = 'skip',
+            line       = dict(width=2, color=color_hex),
+            hovertemplate = f'<b>{term}</b><br>%{{x|%b %Y}}<br>%{{y:.0f}}<extra></extra>',
         ))
 
     # ── BTC price line ────────────────────────────────────────────────────────
@@ -190,11 +178,11 @@ def build_chart(trends_df, btc_price):
     fig.add_trace(go.Scatter(
         x          = dates,
         y          = btc_aligned.values,
-        name       = 'BTCUSDT',
+        name       = 'BTCUSDT price',
         yaxis      = 'y2',
         mode       = 'lines',
         line       = dict(color='white', width=2),
-        hovertemplate = '<b>BTCUSDT</b><br>%{x|%b %Y}<br>$%{y:,.0f}<extra></extra>',
+        hovertemplate = '<b>BTCUSDT price</b><br>%{x|%b %Y}<br>$%{y:,.0f}<extra></extra>',
     ))
 
     # ── Event annotations ─────────────────────────────────────────────────────
@@ -226,7 +214,7 @@ def build_chart(trends_df, btc_price):
     # ── Layout ────────────────────────────────────────────────────────────────
     fig.update_layout(
         title = dict(
-            text      = f'Bitcoin Google Trends + BTCUSDT Price  ·  Last 5 Years  ·  {datetime.now().strftime("%Y-%m-%d")}',
+            text      = f'Bitcoin vs BTCUSDT Search Interest + BTCUSDT Price  ·  Last 5 Years  ·  {datetime.now().strftime("%Y-%m-%d")}',
             font      = dict(size=16, color='#c9d1d9'),
             x         = 0.01,
             xanchor   = 'left',
@@ -245,7 +233,7 @@ def build_chart(trends_df, btc_price):
         ),
 
         yaxis = dict(
-            title      = dict(text='Google Trends Interest (0–100)', font=dict(color='#8b949e')),
+            title      = dict(text='Google Trends Interest (index · own peak = 100)', font=dict(color='#8b949e')),
             tickfont   = dict(color='#8b949e'),
             showgrid   = True,
             gridcolor  = '#1e242c',
@@ -254,7 +242,7 @@ def build_chart(trends_df, btc_price):
         ),
 
         yaxis2 = dict(
-            title       = dict(text='BTCUSDT USD', font=dict(color='#8b949e')),
+            title       = dict(text='BTCUSDT Price (USD)', font=dict(color='#8b949e')),
             tickfont    = dict(color='#8b949e'),
             overlaying  = 'y',
             side        = 'right',
@@ -527,8 +515,8 @@ def main():
     # Build metadata tags for head
     meta_tags = (
         f'<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        f'<meta name="description" content="Interactive chart showing Google Trends search interest for Bitcoin alongside the BTCUSDT price over the last 5 years. Updated {datetime.now().strftime("%Y-%m-%d")}.">\n'
-        f'<title>Bitcoin Google Trends + BTCUSDT Price · Last 5 Years</title>\n'
+        f'<meta name="description" content="Interactive chart showing Google Trends search interest for Bitcoin and BTCUSDT alongside the BTCUSDT price over the last 5 years. Updated {datetime.now().strftime("%Y-%m-%d")}.">\n'
+        f'<title>Bitcoin vs BTCUSDT Search Interest + Price · Last 5 Years</title>\n'
     )
 
     # Terms list as pills
@@ -539,7 +527,7 @@ def main():
     # Page header (injected before Plotly div)
     page_header = (
         '<div class="page-header">\n'
-        '  <h1>Bitcoin Google Trends &amp; BTCUSDT Price</h1>\n'
+        '  <h1>Bitcoin &amp; BTCUSDT Search Interest vs Price</h1>\n'
         f'  <p>5-year weekly view · Last updated {datetime.now().strftime("%d %b %Y")}</p>\n'
         '</div>\n'
         '<div class="chart-wrapper">\n'
@@ -555,9 +543,10 @@ def main():
         '\n'
         '    <div class="method-card">\n'
         '      <h3>What you\'re seeing</h3>\n'
-        '      <p>Google search interest for the term “Bitcoin” over the last 5 years, with the\n'
-        '      BTCUSDT weekly close overlaid as a white line on a linear right-hand USD axis.\n'
-        '      Click a legend entry to show or hide either series.</p>\n'
+        '      <p>Google search interest for the terms “Bitcoin” and “BTCUSDT” over the last 5 years,\n'
+        '      each queried separately and indexed to its own peak week (100). The BTCUSDT weekly close\n'
+        '      is overlaid as a white line on a linear right-hand USD axis. Click a legend entry to\n'
+        '      show or hide any series.</p>\n'
         '    </div>\n'
         '\n'
         '    <div class="method-card">\n'
@@ -569,7 +558,7 @@ def main():
         '    </div>\n'
         '\n'
         '    <div class="method-card">\n'
-        '      <h3>Term tracked</h3>\n'
+        '      <h3>Terms tracked</h3>\n'
         '      <div class="terms-list">\n'
         f'        {terms_pills}\n'
         '      </div>\n'
@@ -592,15 +581,16 @@ def main():
         '\n'
         '    <div class="method-card">\n'
         '      <h3>BTC price axis</h3>\n'
-        '      <p>BTC price is plotted on a linear scale (right axis, USD),\n'
+        '      <p>BTCUSDT price is plotted on a linear scale (right axis, USD),\n'
         '      making absolute dollar moves easy to read at a glance.</p>\n'
         '    </div>\n'
         '\n'
         '  </div>\n'
         '\n'
-        '  <p class="caveat">⚠️ Google Trends returns a <em>relative</em> score: 100 marks the peak week of the\n'
-        '  selected period, every other week is scaled against it. It is not absolute search volume.\n'
-        '  Use as a directional signal, not a precise metric.</p>\n'
+        '  <p class="caveat">⚠️ Google Trends returns <em>relative</em> scores, not volumes. Each term is\n'
+        '  queried on its own and indexed so its peak week reads 100, which makes the two <em>shapes</em>\n'
+        '  comparable — not their levels. “BTCUSDT” is searched far less often than “Bitcoin”: within a\n'
+        '  combined query it scores only 0–3 against Bitcoin\'s 100. Use as a directional signal.</p>\n'
         '</div>\n'
         '\n'
         '<footer class="page-footer">\n'
