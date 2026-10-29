@@ -14,14 +14,16 @@ from pytrends.request import TrendReq
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-TERMS = ["Bitcoin", "BTCUSDT"]
+TERMS = ["Bitcoin", "BTCUSDT", "IBIT", "Bitcoin ETF"]
 
 TIMEFRAME = "today 5-y"
 OUTPUT    = "crypto_trends_dashboard.html"
 
 TREND_COLORS = {
-    "Bitcoin": "#58a6ff",   # blue
-    "BTCUSDT": "#f0883e",   # orange
+    "Bitcoin":     "#58a6ff",   # blue
+    "BTCUSDT":     "#f0883e",   # orange
+    "IBIT":        "#3fb950",   # green
+    "Bitcoin ETF": "#bc8cff",   # purple
 }
 
 COLORS = [
@@ -214,7 +216,7 @@ def build_chart(trends_df, btc_price):
     # ── Layout ────────────────────────────────────────────────────────────────
     fig.update_layout(
         title = dict(
-            text      = f'Bitcoin vs BTCUSDT Search Interest + BTCUSDT Price  ·  Last 5 Years  ·  {datetime.now().strftime("%Y-%m-%d")}',
+            text      = 'Search Interest: ' + ' · '.join(TERMS) + f'  vs  BTCUSDT Price  ·  Last 5 Years  ·  {datetime.now().strftime("%Y-%m-%d")}',
             font      = dict(size=16, color='#c9d1d9'),
             x         = 0.01,
             xanchor   = 'left',
@@ -515,8 +517,8 @@ def main():
     # Build metadata tags for head
     meta_tags = (
         f'<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        f'<meta name="description" content="Interactive chart showing Google Trends search interest for Bitcoin and BTCUSDT alongside the BTCUSDT price over the last 5 years. Updated {datetime.now().strftime("%Y-%m-%d")}.">\n'
-        f'<title>Bitcoin vs BTCUSDT Search Interest + Price · Last 5 Years</title>\n'
+        f'<meta name="description" content="Interactive chart showing Google Trends search interest for Bitcoin, BTCUSDT, IBIT and Bitcoin ETF alongside the BTCUSDT price over the last 5 years. Updated {datetime.now().strftime("%Y-%m-%d")}.">\n'
+        f'<title>Bitcoin, BTCUSDT, IBIT &amp; Bitcoin ETF Search Interest vs Price · Last 5 Years</title>\n'
     )
 
     # Terms list as pills
@@ -524,10 +526,16 @@ def main():
         f'<span class="term-pill">{t}</span>' for t in TERMS
     )
 
+    # Human-readable term list, e.g. “Bitcoin”, “BTCUSDT”, “IBIT” and “Bitcoin ETF”
+    if len(TERMS) == 1:
+        terms_phrase = f'“{TERMS[0]}”'
+    else:
+        terms_phrase = '“' + '”, “'.join(TERMS[:-1]) + f'” and “{TERMS[-1]}”'
+
     # Page header (injected before Plotly div)
     page_header = (
         '<div class="page-header">\n'
-        '  <h1>Bitcoin &amp; BTCUSDT Search Interest vs Price</h1>\n'
+        '  <h1>Bitcoin, BTCUSDT, IBIT &amp; Bitcoin ETF Search Interest vs Price</h1>\n'
         f'  <p>5-year weekly view · Last updated {datetime.now().strftime("%d %b %Y")}</p>\n'
         '</div>\n'
         '<div class="chart-wrapper">\n'
@@ -542,9 +550,10 @@ def main():
         '  <div class="method-grid">\n'
         '\n'
         '    <div class="method-card">\n'
-        '      <h3>What you\'re seeing</h3>\n'
-        '      <p>Google search interest for the terms “Bitcoin” and “BTCUSDT” over the last 5 years,\n'
-        '      each queried separately and indexed to its own peak week (100). The BTCUSDT weekly close\n'
+        '      <h3>What you’re seeing</h3>\n'
+        f'      <p>Google search interest for the terms {terms_phrase} over the last 5 years,\n'
+        '      each queried separately and indexed to its own peak week (100). <strong>IBIT</strong> is the\n'
+        '      iShares spot Bitcoin ETF ticker. The BTCUSDT weekly close\n'
         '      is overlaid as a white line on a linear right-hand USD axis. Click a legend entry to\n'
         '      show or hide any series.</p>\n'
         '    </div>\n'
@@ -588,9 +597,10 @@ def main():
         '  </div>\n'
         '\n'
         '  <p class="caveat">⚠️ Google Trends returns <em>relative</em> scores, not volumes. Each term is\n'
-        '  queried on its own and indexed so its peak week reads 100, which makes the two <em>shapes</em>\n'
-        '  comparable — not their levels. “BTCUSDT” is searched far less often than “Bitcoin”: within a\n'
-        '  combined query it scores only 0–3 against Bitcoin\'s 100. Use as a directional signal.</p>\n'
+        '  queried on its own and indexed so its peak week reads 100, which makes the <em>shapes</em>\n'
+        '  comparable — not their levels. “BTCUSDT”, “IBIT” and “Bitcoin ETF” are searched far less often\n'
+        '  than “Bitcoin”: within a combined query “BTCUSDT” scores only 0–3 against Bitcoin’s 100.\n'
+        '  Use as a directional signal.</p>\n'
         '</div>\n'
         '\n'
         '<footer class="page-footer">\n'
